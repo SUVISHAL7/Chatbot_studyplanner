@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyBot - AI Study Assistant</title>
+    <style>
+        /* Universal box-sizing for consistent padding and borders */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Body styling: full height, red gradient background, flex container to center chat */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            /* NEW: Background image with a subtle dark overlay for text readability */
+            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1522204523234-8729aa6b6fd6?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+            /* Alternative images:
+            url('https://images.unsplash.com/photo-1507537367746-b0728c036e4f?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D') - Bookshelf
+            url('https://images.unsplash.com/photo-1498050108023-c5249f4cd085?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D') - Desk with laptop (tech theme)
+            url('https://images.unsplash.com/photo-1549490349-f79a0230238c?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D') - Globe and books (classic study)
+            */
+            background-size: cover; /* Cover the entire viewport */
+            background-position: center; /* Center the image */
+            background-repeat: no-repeat; /* Do not repeat the image */
+            background-attachment: fixed; /* Keep image fixed during scroll */
+
+            min-height: 100vh; /* Ensure full viewport height for centering */
+            display: flex;
+            flex-direction: column; /* Allows content to stack if needed */
+            justify-content: center; /* Center chat container vertically */
+            align-items: center; /* Center chat container horizontally */
+        }
+
+        /* Main chat container: responsive width, fixed height, white background with shadow and rounded corners */
+        .chat-container {
+            width: 95%; /* Increased responsive width */
+            max-width: 900px; /* Increased maximum width for larger screens */
+            height: 95vh; /* Increased fixed height relative to viewport */
+            display: flex;
+            flex-direction: column;
+            background: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.2);
+            border-radius: 12px; /* Rounded corners for the main container */
+            overflow: hidden; /* Ensures content inside respects border-radius */
+            /* NEW: Initial animation for the container */
+            opacity: 0;
+            transform: scale(0.95);
+            animation: fadeInScaleUp 0.8s ease-out forwards;
+        }
+
+        /* Keyframe animation for chat container entrance */
+        @keyframes fadeInScaleUp {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Chat header: red gradient background, centered text, relative positioning for indicators */
+        .chat-header {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); /* Red gradient */
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        /* Bot avatar in header: circular, white background, pulse animation */
+        .bot-avatar {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            margin-bottom: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        /* Keyframe animation for bot avatar pulse effect */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Status indicator: position, alignment, font size */
+        .status-indicator {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        /* Status dot: circular, green, blink animation */
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: #4ade80; /* Tailwind 'green-400' */
+            border-radius: 50%;
+            animation: blink 1.5s infinite;
+        }
+
+        /* Keyframe animation for status dot blink effect */
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        /* Layer status badges container: flex display, gap, center alignment, wrap for responsiveness */
+        .layer-status {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Individual layer badges: padding, rounded corners, font styling, subtle border */
+        .layer-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 2px solid rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+        }
+
+        /* Active layer badge: white background, red text, border, glow animation */
+        .layer-badge.active {
+            background: white;
+            color: #ef4444; /* Primary red color */
+            border-color: white;
+            animation: glow 1.5s infinite;
+        }
+
+        /* Completed layer badge: semi-transparent white background and border */
+        .layer-badge.completed {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        /* Keyframe animation for active badge glow effect */
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(255,255,255,0.5); }
+            50% { box-shadow: 0 0 20px rgba(255,255,255,0.8); }
+        }
+
+        /* Chat messages area: flexible height, scrollable, light background */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8fafc; /* Tailwind 'slate-50' */
+        }
+
+        /* Individual message container: bottom margin, slide-in animation */
+        .message {
+            margin-bottom: 20px;
+            /* NEW: Enhanced slide-in with bounce */
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideInBounce 0.5s ease-out forwards;
+            transform-origin: bottom; /* For better bounce effect */
+        }
+
+        /* Keyframe animation for message slide-in with bounce effect */
+        @keyframes slideInBounce {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            75% {
+                opacity: 1;
+                transform: translateY(-5px); /* Slight overshoot for bounce */
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Bot message specific alignment */
+        .message.bot {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* User message specific alignment (right-aligned) */
+        .message.user {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        /* Message avatar: circular, consistent sizing and centering */
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0; /* Prevent avatar from shrinking */
+        }
+
+        /* Bot message avatar styling (red gradient) */
+        .bot .message-avatar {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); /* Red gradient */
+            color: white;
+        }
+
+        /* User message avatar styling */
+        .user .message-avatar {
+            background: #e2e8f0; /* Tailwind 'slate-200' */
+            color: #64748b; /* Tailwind 'slate-600' */
+        }
+
+        /* Message content bubble: increased max width, padding, rounded corners, line height */
+        .message-content {
+            max-width: 80%; /* Increased max width for wider bubbles */
+            padding: 16px 20px;
+            border-radius: 18px;
+            line-height: 1.5;
+        }
+
+        /* Bot message content styling: white background, subtle border and shadow */
+        .bot .message-content {
+            background: white;
+            border: 1px solid #e2e8f0; /* Tailwind 'slate-200' */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* User message content styling: red gradient background, white text */
+        .user .message-content {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); /* Red gradient */
+            color: white;
+        }
+
+        /* Typing indicator: flex alignment, font styling, left margin to align with bot messages */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-style: italic;
+            color: #64748b; /* Tailwind 'slate-600' */
+            margin-left: 52px; /* Aligns with bot message content */
+        }
+
+        /* Typing dots container */
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        /* Individual typing dot: circular, dark grey, typing animation */
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #64748b; /* Tailwind 'slate-600' */
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        /* Staggered animation delays for typing dots */
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        /* Keyframe animation for typing dot bounce effect */
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+
+        /* Chat input area: padding, white background, top border */
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e2e8f0; /* Tailwind 'slate-200' */
+        }
+
+        /* Input container: flex display, gap, center alignment */
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* Text input field: flexible width, padding, rounded corners, border, focus effect */
+        .chat-input input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e2e8f0; /* Tailwind 'slate-200' */
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        /* Input focus state: primary red border */
+        .chat-input input:focus {
+            border-color: #ef4444; /* Primary red color */
+        }
+
+        /* Send button: circular, red gradient background, white text, pointer cursor, hover effect */
+        .send-button {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); /* Red gradient */
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: transform 0.2s ease, background 0.2s ease; /* NEW: Added background transition */
+        }
+
+        /* Send button hover effect */
+        .send-button:hover {
+            transform: scale(1.05);
+        }
+
+        /* NEW: Send button active (pressed) state */
+        .send-button:active {
+            transform: scale(0.95);
+            background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); /* Invert gradient or darken */
+        }
+
+        /* Disabled send button state */
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); /* Ensure gradient remains */
+        }
+
+        /* Analysis card: light grey background, rounded corners, padding, margin */
+        .analysis-card {
+            background: #f1f5f9; /* Tailwind 'slate-100' */
+            border-radius: 12px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+
+        /* Analysis item: flex display, space between, center alignment, bottom border */
+        .analysis-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0; /* Tailwind 'slate-200' */
+        }
+
+        /* No bottom border for the last analysis item */
+        .analysis-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Analysis label styling */
+        .analysis-label {
+            font-weight: 600;
+            color: #475569; /* Tailwind 'slate-700' */
+        }
+
+        /* Analysis value styling: primary red color, bold, capitalize text */
+        .analysis-value {
+            color: #ef4444; /* Primary red color */
+            font-weight: 500;
+            text-transform: capitalize;
+        }
+
+        /* Study plan card: red gradient background, white text, large rounded corners, padding, margin */
+        .study-plan-card {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); /* Red gradient */
+            color: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin: 12px 0;
+        }
+
+        /* Plan header: centered text, bottom margin */
+        .plan-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* Plan title styling */
+        .plan-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        /* Plan subtitle styling: slightly faded text, smaller font */
+        .plan-subtitle {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        /* Action steps container: margin */
+        .action-steps {
+            margin: 16px 0;
+        }
+
+        /* Individual action step: semi-transparent background, rounded corners, padding, margin, flex display */
+        .action-step {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Step number: circular, white background, primary red text, bold */
+        .step-number {
+            width: 24px;
+            height: 24px;
+            background: white;
+            color: #ef4444; /* Primary red color */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+            flex-shrink: 0; /* Prevent from shrinking */
+        }
+
+        /* Step content: flexible width */
+        .step-content {
+            flex: 1;
+        }
+
+        /* Step title styling */
+        .step-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        /* Step description styling: slightly faded text, smaller font */
+        .step-description {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+
+        /* Step time: semi-transparent background, padding, rounded corners, smaller font */
+        .step-time {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            flex-shrink: 0; /* Prevent from shrinking */
+        }
+
+        /* Motivational note: semi-transparent background, rounded corners, padding, centered italic text */
+        .motivational-note {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            font-style: italic;
+            margin: 16px 0;
+        }
+
+        /* Quick actions container: flex display, gap, wrap for responsiveness */
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* Individual quick action button: semi-transparent background, subtle border, white text, rounded corners, hover effect */
+        .quick-action {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        /* NEW: Quick action hover effect */
+        .quick-action:hover {
+            background: rgba(255,255,255,0.4); /* Darken on hover */
+            transform: translateY(-2px); /* Lift slightly */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Add shadow */
+        }
+
+        /* NEW: Quick action active (pressed) state */
+        .quick-action:active {
+            transform: translateY(0); /* Reset lift on press */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Reduce shadow on press */
+        }
+
+        /* Resources list: flex display, wrap, gap, margin */
+        .resources-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 12px 0;
+        }
+
+        /* Resource tag: semi-transparent background, padding, rounded corners, smaller font */
+        .resource-tag {
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+        }
+
+        /* Notification message: fixed position, green background, white text, rounded corners, slide-in animation */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4ade80; /* Tailwind 'green-400' */
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        /* Show notification state */
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Error notification styling: red background */
+        .notification.error {
+            background: #ef4444; /* Tailwind 'red-500' */
+        }
+
+        /* Styling for the new sections in the study plan card */
+        .plan-section {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .plan-section h4 {
+            margin-bottom: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .notes-suggestion-item, .reference-link-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .reference-link-item a {
+            color: white;
+            text-decoration: underline;
+            word-break: break-all; /* Ensures long links break and don't overflow */
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Chat Header Section -->
+        <div class="chat-header">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Online</span>
+            </div>
+            <div class="bot-avatar">🤖</div>
+            <h1>StudyBot</h1>
+            <p>Your AI-Powered Study Assistant</p>
+            <div class="layer-status">
+                <div class="layer-badge" data-layer="1">🧠 Input Analysis</div>
+                <div class="layer-badge" data-layer="2">📊 State Tracking</div>
+                <div class="layer-badge" data-layer="3">🎯 Task Planning</div>
+                <div class="layer-badge" data-layer="4">📋 Plan Generation</div>
+            </div>
+        </div>
+
+        <!-- Chat Messages Display Area -->
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <strong>Hello! I'm StudyBot, your AI study assistant! 👋</strong><br><br>
+                    I use a 4-layer AI architecture to create personalized study plans just for you. I can help you with:
+                    <br><br>
+                    ✅ Analyzing your study needs<br>
+                    ✅ Creating time-optimized study schedules<br>
+                    ✅ Suggesting the best study strategies<br>
+                    ✅ Tracking your progress and weak areas<br>
+                    ✅ Test your knowledge with quizzes ✨<br>
+                    <br>
+                    <strong>Tell me about your study situation!</strong> For example:
+                    <br><em>"I need help studying for my math exam tomorrow. I'm struggling with calculus and have 2 hours to prepare."</em><br><br>
+                    *I can also answer general questions! Just ask away.*
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Input Section -->
+        <div class="chat-input">
+            <div class="input-container">
+                <input type="text" id="userInput" placeholder="Tell me about your study needs..." maxlength="500">
+                <button class="send-button" id="sendButton" onclick="sendMessage()">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Display Area -->
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // --- Global State Variables ---
+        // Tracks the current step in the AI's processing pipeline (1-4, or 1.5, 2.5, 3.5 for detail prompts)
+        let currentStep = 1;
+        // Stores the parsed data from the user's initial input
+        let inputAnalysis = { subject: 'general', urgency: 'low', studyType: 'general', timeAvailable: '1hour', difficulty: 'medium', specificTopics: [] };
+        // Maintains a simulated user profile for personalized recommendations
+        let userState = {
+            studyHistory: [], // Stores recent study sessions
+            weakAreas: [],    // Stores subjects identified as difficult
+            studyLevel: 'intermediate' // A general study level (could be dynamic)
+        };
+        // Stores the generated study strategy and steps
+        let taskPlan = null;
+        // Stores the final, formatted study plan output
+        let finalOutput = null;
+
+        // NEW: Global variable to maintain general chat history for Gemini API calls
+        let userChatHistory = []; // Stores objects like { role: 'user', parts: [{ text: '...' }] } or { role: 'model', parts: [{ text: '...' }] }
+
+        // NEW: Variables to store generated HTML for detail requests
+        let lastInputAnalysisDetailsHTML = '';
+        let lastUserStateDetailsHTML = '';
+        let lastTaskPlanDetailsHTML = '';
+        let isAwaitingDetailRequest = false; // Flag to indicate if bot is waiting for a detail request
+
+
+        // --- DOM Elements References ---
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+
+        // --- Event Listeners ---
+        // Allows sending message by pressing 'Enter' key in the input field
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // --- UI Update Functions ---
+
+        /**
+         * Updates the visual status of the AI layers in the header.
+         * @param {number} activeLayer - The number of the currently active layer (1-4).
+         */
+        function updateLayerStatus(activeLayer) {
+            const badges = document.querySelectorAll('.layer-badge');
+            badges.forEach((badge, index) => {
+                const layerNum = index + 1;
+                badge.classList.remove('active', 'completed'); // Reset classes
+                
+                if (layerNum === activeLayer) {
+                    badge.classList.add('active'); // Set active for current layer
+                } else if (layerNum < activeLayer) {
+                    badge.classList.add('completed'); // Set completed for previous layers
+                }
+            });
+        }
+
+        /**
+         * Adds a new message to the chat display.
+         * @param {string} content - The HTML content of the message.
+         * @param {boolean} [isUser=false] - True if the message is from the user, false for bot.
+         * @param {number} [delay=0] - Delay in milliseconds before adding the message.
+         */
+        function addMessage(content, isUser = false, delay = 0) {
+            setTimeout(() => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = message ${isUser ? 'user' : 'bot'}; // Apply user or bot class
+                
+                // Construct message HTML with avatar and content
+                messageDiv.innerHTML = `
+                    <div class="message-avatar">${isUser ? '👤' : '🤖'}</div>
+                    <div class="message-content">${content}</div>
+                `;
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+            }, delay);
+        }
+
+        /**
+         * Displays a typing indicator in the chat.
+         */
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'typing-indicator';
+            typingDiv.id = 'typingIndicator'; // Assign an ID for easy removal
+            typingDiv.innerHTML = `
+                StudyBot is thinking
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(typingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+        }
+
+        /**
+         * Hides the typing indicator from the chat.
+         */
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.remove(); // Remove the element
+            }
+        }
+
+        /**
+         * Displays a temporary notification message.
+         * @param {string} message - The text content of the notification.
+         * @param {boolean} [isError=false] - True if it's an error notification (red background).
+         */
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            // Apply appropriate classes for styling and showing/hiding
+            notification.className = notification ${isError ? 'error' : ''} show;
+            
+            // Automatically hide after 3 seconds
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // --- Core Application Logic ---
+
+        /**
+         * Handles sending a message from the user.
+         * Extracts input, adds to chat, clears input, disables button, and triggers AI processing.
+         */
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return; // Do nothing if input is empty
+
+            addMessage(message, true); // Add user message to chat
+            userInput.value = ''; // Clear input field
+            sendButton.disabled = true; // Disable send button during processing
+
+            processUserInput(message); // Start AI processing
+        }
+
+        /**
+         * Orchestrates the 4-layer AI processing based on the current step.
+         * @param {string} input - The user's message.
+         */
+        function processUserInput(input) {
+            showTypingIndicator();
+            sendButton.disabled = true; // Keep disabled until response
+
+            userChatHistory.push({ role: 'user', parts: [{ text: input }] });
+
+            const lowerInput = input.toLowerCase();
+
+            // Check for common greetings first
+            const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening'];
+            const isGreeting = greetings.some(greeting => lowerInput.includes(greeting));
+
+            if (isGreeting) {
+                hideTypingIndicator();
+                addMessage("Hello there! How can I assist you today?");
+                userChatHistory.push({ role: 'model', parts: [{ text: "Hello there! How can I assist you today?" }] });
+                sendButton.disabled = false;
+                // Do not change currentStep or isAwaitingDetailRequest as it's a transient interaction
+                return; // Exit function after handling greeting
+            }
+
+            // 1. Check for explicit 'show details' commands if we just completed a background step
+            if (isAwaitingDetailRequest) {
+                if (currentStep === 1.5 && (lowerInput.includes('show analysis') || lowerInput.includes('what you understood') || lowerInput.includes('show details'))) {
+                    addMessage(lastInputAnalysisDetailsHTML);
+                    isAwaitingDetailRequest = false;
+                    currentStep = 2; // Move to next actual layer
+                    setTimeout(() => updateUserState(), 1500); // Auto-proceed after showing details
+                    return;
+                } else if (currentStep === 2.5 && (lowerInput.includes('show profile') || lowerInput.includes('updated profile') || lowerInput.includes('show state'))) {
+                    addMessage(lastUserStateDetailsHTML);
+                    isAwaitingDetailRequest = false;
+                    currentStep = 3; // Move to next actual layer
+                    setTimeout(() => createTaskPlan(), 1500); // Auto-proceed after showing details
+                    return;
+                } else if (currentStep === 3.5 && (lowerInput.includes('show plan') || lowerInput.includes('task breakdown') || lowerInput.includes('review tasks'))) {
+                    addMessage(lastTaskPlanDetailsHTML);
+                    isAwaitingDetailRequest = false;
+                    currentStep = 4; // Move to next actual layer
+                    setTimeout(() => generateFinalOutput(), 1500); // Auto-proceed after showing details
+                    return;
+                } else {
+                    // User did not ask for details, proceed automatically to the next stage
+                    isAwaitingDetailRequest = false; // Reset the flag
+                    // Continue the sequence
+                    if (currentStep === 1.5) {
+                        currentStep = 2;
+                        setTimeout(() => updateUserState(), 500);
+                    } else if (currentStep === 2.5) {
+                        currentStep = 3;
+                        setTimeout(() => createTaskPlan(), 500);
+                    } else if (currentStep === 3.5) {
+                        currentStep = 4;
+                        setTimeout(() => generateFinalOutput(), 500);
+                    }
+                    return; // Exit here if we decided to auto-proceed, don't fallback to general chat
+                }
+            }
+
+            // 2. Check for keywords to start a new study plan.
+            // This is more complex, as "normal conversation" could also contain study keywords.
+            // For simplicity, let's assume if currentStep is 1 (initial state) OR
+            // if the user types something that looks like a study request and not a general question,
+            // we initiate the plan.
+            const studyPlanKeywords = ['study', 'help', 'plan', 'exam', 'prepare', 'need help', 'for my', 'struggling with', 'hours to', 'minutes to', 'quiz on'];
+            const isStudyRequest = studyPlanKeywords.some(keyword => lowerInput.includes(keyword));
+
+            if (currentStep === 1 || isStudyRequest) {
+                updateLayerStatus(1);
+                analyzeInputWithGemini(input);
+            } else {
+                // 3. If none of the above, it's a general conversation
+                handleGeneralChatWithGemini(input);
+            }
+        }
+
+        // --- Gemini API Integration Functions ---
+
+        /**
+         * Handles general chat interactions using the Gemini API.
+         * This function is called when the bot is not in the process of generating a study plan.
+         * @param {string} input - The user's message.
+         */
+        async function handleGeneralChatWithGemini(input) {
+            try {
+                // Send the full conversation history to maintain context
+                const payload = {
+                    contents: userChatHistory
+                };
+                const apiKey = ""; // API key is automatically provided in Canvas runtime
+                const apiUrl = https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey};
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                hideTypingIndicator();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const botResponse = result.candidates[0].content.parts[0].text;
+                    addMessage(botResponse);
+                    // Add bot's response to general chat history for future context
+                    userChatHistory.push({ role: 'model', parts: [{ text: botResponse }] });
+                    sendButton.disabled = false;
+                } else {
+                    showNotification("I'm having a little trouble thinking right now. Could you please rephrase?", true);
+                    console.error("Gemini general chat failed: No candidates or content found in response.", result);
+                    sendButton.disabled = false;
+                }
+            } catch (error) {
+                showNotification("A network issue occurred during chat. Please check your internet connection.", true);
+                console.error("General chat fetch error:", error);
+                sendButton.disabled = false;
+            }
+        }
+
+
+        /**
+         * Calls the Gemini API to analyze the user's input and extract study parameters.
+         * This replaces the static extract functions for a more dynamic and intelligent analysis.
+         * @param {string} input - The user's raw input string.
+         */
+        async function analyzeInputWithGemini(input) {
+            try {
+                // Define the prompt for the LLM to extract structured information
+                const prompt = `Analyze the following study request and extract the subject, urgency, study type, time available, difficulty, and specific topics. 
+                
+                Study Request: "${input}"
+                
+                Provide the output as a JSON object with the following keys and data types:
+                - "subject": string (e.g., "math", "physics", "history", "general")
+                - "urgency": string ("high", "medium", "low")
+                - "studyType": string ("practice", "review", "memorization", "comprehension", "general")
+                - "timeAvailable": string ("30min", "1hour", "2hours", "3hours", "unknown")
+                - "difficulty": string ("high", "medium", "low")
+                - "specificTopics": array of strings (list of specific topics mentioned, max 3)
+                
+                Example of desired JSON output:
+                {
+                  "subject": "math",
+                  "urgency": "high",
+                  "studyType": "review",
+                  "timeAvailable": "2hours",
+                  "difficulty": "high",
+                  "specificTopics": ["calculus", "integrals"]
+                }`;
+
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = {
+                    contents: chatHistory,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "subject": { "type": "STRING" },
+                                "urgency": { "type": "STRING" },
+                                "studyType": { "type": "STRING" },
+                                "timeAvailable": { "type": "STRING" },
+                                "difficulty": { "type": "STRING" },
+                                "specificTopics": { "type": "ARRAY", "items": { "type": "STRING" } }
+                            },
+                            "propertyOrdering": ["subject", "urgency", "studyType", "timeAvailable", "difficulty", "specificTopics"]
+                        }
+                    }
+                };
+                const apiKey = ""; // If you want to use models other than gemini-2.0-flash or imagen-3.0-generate-002, provide an API key here. Otherwise, leave this as-is.
+                const apiUrl = https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey};
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                hideTypingIndicator();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    // Safely parse JSON
+                    try {
+                        inputAnalysis = JSON.parse(jsonString);
+                    } catch (parseError) {
+                        console.error("Error parsing AI analysis JSON:", parseError, "Raw JSON string:", jsonString);
+                        showNotification("Oops! I received a malformed response from the AI. Trying a fallback.", true);
+                        // Fallback to a default analysis if parsing fails
+                        inputAnalysis = {
+                            subject: 'general', urgency: 'low', studyType: 'general',
+                            timeAvailable: '1hour', difficulty: 'medium', specificTopics: []
+                        };
+                    }
+
+                    // Store the detailed HTML for potential display
+                    lastInputAnalysisDetailsHTML = `
+                        <strong>🧠 ✨ Great! I've analyzed your request:</strong><br><br>
+                        Here's what I gathered from your study needs:
+                        
+                        <div class="analysis-card">
+                            <div class="analysis-item">
+                                <span class="analysis-label">📚 Subject</span>
+                                <span class="analysis-value">${inputAnalysis.subject}</span>
+                            </div>
+                            <div class="analysis-item">
+                                <span class="analysis-label">⚡ Urgency Level</span>
+                                <span class="analysis-value">${inputAnalysis.urgency}</span>
+                            </div>
+                            <div class="analysis-item">
+                                <span class="analysis-label">📖 Study Type</span>
+                                <span class="analysis-value">${inputAnalysis.studyType}</span>
+                            </div>
+                            <div class="analysis-item">
+                                <span class="analysis-label">⏰ Time Available</span>
+                                <span class="analysis-value">${inputAnalysis.timeAvailable}</span>
+                            </div>
+                            <div class="analysis-item">
+                                <span class="analysis-label">📊 Difficulty</span>
+                                <span class="analysis-value">${inputAnalysis.difficulty}</span>
+                            </div>
+                        </div>
+                        
+                        ${inputAnalysis.specificTopics.length > 0 ? 
+                            <strong>🎯 Focus Topics:</strong> ${inputAnalysis.specificTopics.join(', ')}<br><br> : 'It looks like you\'re looking for general help. I can do that!'
+                        }
+                        
+                        Okay, now I'm updating your study profile. This helps me tailor things even better for you!
+                    `;
+
+                    // Add conversational summary and prompt for details
+                    addMessage("Got it! I've analyzed your study request and gathered the key details. Would you like to see what I understood, or should I proceed to update your study profile?");
+                    userChatHistory.push({ role: 'model', parts: [{ text: 'I\'ve analyzed your request and gathered key details for your study plan. Would you like to see what I understood, or should I proceed?' }] });
+                    
+                    currentStep = 1.5; // Intermediate step for detail request
+                    isAwaitingDetailRequest = true;
+
+                } else {
+                    showNotification("Oops! I couldn't quite understand your request. Could you try rephrasing?", true);
+                    console.error("AI analysis failed: No candidates or content found in response.", result);
+                    sendButton.disabled = false; // Re-enable send button on error
+                    hideTypingIndicator();
+                }
+            } catch (error) {
+                showNotification("A network issue occurred during AI analysis. Please check your internet connection and try again.", true);
+                console.error("Fetch error during AI analysis:", error);
+                sendButton.disabled = false; // Re-enable send button on error
+                hideTypingIndicator();
+            }
+        }
+
+        // Layer 2: State Tracker
+        function updateUserState() {
+            updateLayerStatus(2);
+            showTypingIndicator();
+
+            setTimeout(() => {
+                hideTypingIndicator();
+                
+                const newSession = {
+                    subject: inputAnalysis.subject,
+                    timestamp: new Date(),
+                    urgency: inputAnalysis.urgency
+                };
+                
+                userState.studyHistory.push(newSession);
+                if (userState.studyHistory.length > 5) {
+                    userState.studyHistory = userState.studyHistory.slice(-5);
+                }
+                
+                if (inputAnalysis.difficulty === 'high' && !userState.weakAreas.includes(inputAnalysis.subject)) {
+                    userState.weakAreas.push(inputAnalysis.subject);
+                }
+
+                // Store the detailed HTML for potential display
+                lastUserStateDetailsHTML = `
+                    <strong>📊 Perfect! Your Study Profile has been updated.</strong><br><br>
+                    Here's a quick look at how your profile is shaping up:
+                    
+                    <div class="analysis-card">
+                        <strong>📈 Recent Study Sessions:</strong><br>
+                        ${userState.studyHistory.length > 0 ? 
+                            userState.studyHistory.slice(-3).map(session => 
+                                • ${session.subject.charAt(0).toUpperCase() + session.subject.slice(1)} - ${session.urgency} priority
+                            ).join('<br>') :
+                            'No previous sessions recorded yet.'
+                        }
+                        <br><br>
+                        <strong>⚠ Areas Needing Focus:</strong><br>
+                        ${userState.weakAreas.length > 0 ? 
+                            userState.weakAreas.map(area => • ${area.charAt(0).toUpperCase() + area.slice(1)}).join('<br>') :
+                            'No specific weak areas identified yet. Keep up the great work!'
+                        }
+                    </div>
+                    
+                    Alright, let's move on to building out a detailed plan for you!
+                `;
+
+                // Add conversational summary and prompt for details
+                addMessage("Alright, your study profile has been updated! Now, I'm ready to craft a detailed task plan for you. Would you like to see your updated profile, or should I go ahead with the planning?");
+                userChatHistory.push({ role: 'model', parts: [{ text: 'Your study profile has been updated. Would you like to see the details, or should I proceed with planning?' }] });
+
+                currentStep = 2.5; // Intermediate step for detail request
+                isAwaitingDetailRequest = true;
+
+            }, 1500);
+        }
+
+        // Layer 3: Task Planner
+        function createTaskPlan() {
+            updateLayerStatus(3);
+            showTypingIndicator();
+
+            setTimeout(() => {
+                hideTypingIndicator();
+                
+                taskPlan = {
+                    strategy: determineStrategy(),
+                    steps: generateSteps(),
+                    timeAllocation: allocateTime(),
+                    resources: suggestResources()
+                };
+
+                // Store the detailed HTML for potential display
+                lastTaskPlanDetailsHTML = `
+                    <strong>🎯 Excellent! I've crafted a study strategy just for you.</strong><br><br>
+                    Based on everything we've discussed, here's a glimpse into your customized study plan:
+                    
+                    <div class="analysis-card">
+                        <div class="analysis-item">
+                            <span class="analysis-label">📋 Strategy</span>
+                            <span class="analysis-value">${taskPlan.strategy.replace('-', ' ')}</span>
+                        </div>
+                    </div>
+                    
+                    <strong>📝 Here are the key steps we'll focus on:</strong><br>
+                    ${taskPlan.steps.map((step, index) => ${index + 1}. ${step}).join('<br>')}
+                    <br><br>
+                    
+                    <strong>⏱ And how we'll wisely allocate your time:</strong><br>
+                    ${Object.entries(taskPlan.timeAllocation).map(([activity, time]) => 
+                        • ${activity}: <strong>${time}</strong>
+                    ).join('<br>')}
+                    <br><br>
+                    
+                    <strong>📚 Plus, some resources you might find helpful:</strong><br>
+                    <div class="resources-list">
+                        ${taskPlan.resources.map(resource => <span class="resource-tag">${resource}</span>).join('')}
+                    </div>
+                    
+                    Almost there! Now, let me put all these pieces together into your final personalized study plan.
+                `;
+
+                // Add conversational summary and prompt for details
+                addMessage("Excellent! I've structured your study tasks. Just one more step to generate your complete personalized plan. Would you like to review the task breakdown, or should I finalize the plan?");
+                userChatHistory.push({ role: 'model', parts: [{ text: 'I\'ve created a study strategy and tasks for your plan. Would you like to review the task breakdown, or should I finalize the plan?' }] });
+                
+                currentStep = 3.5; // Intermediate step for detail request
+                isAwaitingDetailRequest = true;
+
+            }, 2000);
+        }
+
+        /**
+         * Layer 4: Generates the final, detailed, and formatted study plan
+         * ready for the user. This now includes LLM calls for notes and links.
+         */
+        async function generateFinalOutput() {
+            updateLayerStatus(4);
+            showTypingIndicator();
+
+            try {
+                // Fetch notes and links using Gemini API in parallel
+                const [suggestedNotes, referenceLinks] = await Promise.all([
+                    generateNotesSuggestionsWithGemini(inputAnalysis.subject, inputAnalysis.specificTopics),
+                    generateReferenceLinksWithGemini(inputAnalysis.subject, inputAnalysis.studyType, inputAnalysis.specificTopics)
+                ]);
+
+                hideTypingIndicator(); // Hide typing indicator after all LLM calls
+
+                // Assemble the final output components
+                finalOutput = {
+                    studyPlan: createStudyPlan(),
+                    specificActions: createActionList(),
+                    motivationalNote: createMotivationalNote(),
+                    nextSteps: createNextSteps(),
+                    suggestedNotes: suggestedNotes,
+                    referenceLinks: referenceLinks
+                };
+
+                // Construct HTML for the final study plan card, including new sections
+                const finalHTML = `
+                    <strong>🎉 Ta-da! Your Personalized Study Plan is Complete!</strong><br><br>
+                    
+                    <div class="study-plan-card">
+                        <div class="plan-header">
+                            <div class="plan-title">📚 ${finalOutput.studyPlan.title}</div>
+                            <div class="plan-subtitle">Duration: ${finalOutput.studyPlan.duration} | Strategy: ${finalOutput.studyPlan.strategy.replace('-', ' ')}</div>
+                        </div>
+                        
+                        <div class="action-steps">
+                            ${finalOutput.specificActions.map(action => `
+                                <div class="action-step">
+                                    <div class="step-number">${action.step}</div>
+                                    <div class="step-content">
+                                        <div class="step-title">${action.action}</div>
+                                        <div class="step-description">${action.description}</div>
+                                    </div>
+                                    <div class="step-time">${action.time}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <div class="motivational-note">
+                            💪 ${finalOutput.motivationalNote}
+                        </div>
+
+                        <div class="plan-section">
+                            <h4>📝 ✨ AI-Suggested Notes:</h4>
+                            ${finalOutput.suggestedNotes.length > 0 ? 
+                                finalOutput.suggestedNotes.map(note => <div class="notes-suggestion-item">• ${note}</div>).join('') :
+                                '<div class="notes-suggestion-item">Keep a notebook handy for all key points!</div>'
+                            }
+                        </div>
+
+                        <div class="plan-section">
+                            <h4>🔗 ✨ AI-Suggested Reference Links:</h4>
+                            ${finalOutput.referenceLinks.length > 0 ? 
+                                finalOutput.referenceLinks.map(link => <div class="reference-link-item"><a href="${link.url}" target="_blank" rel="noopener noreferrer">${link.text}</a></div>).join('') :
+                                '<div class="reference-link-item">Search online for "{subject} study guide" for more resources.</div>'.replace('{subject}', inputAnalysis.subject)
+                            }
+                        </div>
+                        
+                        <div class="plan-section">
+                            <h4>🚀 Before You Start:</h4>
+                            ${finalOutput.nextSteps.map(step => • ${step}).join('<br>')}
+                        </div>
+                        
+                        <div class="quick-actions">
+                            <div class="quick-action" onclick="startNewSession()">🔄 New Session</div>
+                            <div class="quick-action" onclick="exportPlan()">💾 Export Plan</div>
+                            <div class="quick-action" onclick="setReminder()">⏰ Set Reminder</div>
+                            <div class="quick-action" onclick="generateQuizWithGemini()">✨ Generate Quiz</div>
+                        </div>
+                    </div>
+                `;
+
+                addMessage(finalHTML);
+                // Add a simplified text representation of this step to userChatHistory for conversational context
+                userChatHistory.push({ role: 'model', parts: [{ text: 'Your personalized study plan, complete with notes and links, is ready! Feel. feel free to ask me anything else.' }] });
+                
+                setTimeout(() => {
+                    sendButton.disabled = false;
+                    addMessage("Fantastic! I'm ready to help you with another study session whenever you are. Just tell me what's on your mind. 😊");
+                }, 1000);
+
+            } catch (error) {
+                showNotification("Oops! I had trouble generating the full plan with AI. Let's try that again.", true);
+                console.error("Error in generateFinalOutput:", error);
+                sendButton.disabled = false;
+                hideTypingIndicator();
+            }
+        }
+
+        /**
+         * Generates notes suggestions using the Gemini API.
+         * @param {string} subject - The study subject.
+         * @param {string[]} topics - Specific topics identified.
+         * @returns {Promise<string[]>} A promise that resolves to an array of notes suggestions.
+         */
+        async function generateNotesSuggestionsWithGemini(subject, topics) {
+            try {
+                const prompt = `Suggest 5 concise, actionable note-taking tips specifically for studying ${subject} ${topics.length > 0 ? 'focusing on ' + topics.join(', ') : ''}.
+                
+                Provide the output as a JSON array of strings. Each string should be a note-taking tip.`;
+
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = {
+                    contents: chatHistory,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "ARRAY",
+                            items: { "type": "STRING" }
+                        }
+                    }
+                };
+                const apiKey = "";
+                const apiUrl = https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey};
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    // Add check for empty or invalid JSON string
+                    if (!jsonString || jsonString.trim() === '') {
+                        console.warn("Gemini returned an empty or whitespace-only string for notes suggestions.");
+                        return ["Consider creating flashcards for key terms.", "Summarize main points in your own words."]; // Fallback
+                    }
+                    try {
+                        return JSON.parse(jsonString);
+                    } catch (parseError) {
+                        console.error("Error parsing notes suggestions JSON:", parseError, "Raw JSON string:", jsonString);
+                        return ["Consider creating flashcards for key terms.", "Summarize main points in your own words."]; // Fallback
+                    }
+                } else {
+                    console.warn("Gemini did not return notes suggestions: No candidates or content found.", result);
+                    return ["Consider creating flashcards for key terms.", "Summarize main points in your own words."]; // Fallback
+                }
+            } catch (error) {
+                console.error("Error fetching notes suggestions from Gemini:", error);
+                return ["Review concepts actively.", "Practice problem-solving regularly."]; // Fallback on error
+            }
+        }
+
+        /**
+         * Generates simulated reference links using the Gemini API.
+         * @param {string} subject - The study subject.
+         * @param {string} studyType - The type of study.
+         * @param {string[]} topics - Specific topics identified.
+         * @returns {Promise<Object[]>} A promise that resolves to an array of link objects.
+         */
+        async function generateReferenceLinksWithGemini(subject, studyType, topics) {
+            try {
+                const prompt = `Suggest 3-5 highly relevant simulated online reference links (text and URL) for studying ${subject} with a focus on ${studyType}${topics.length > 0 ? ' and specific topics like ' + topics.join(', ') : ''}. The URLs should be plausible but do not need to be real existing websites. Prioritize common educational platforms like Khan Academy, Wikipedia, or university resources.
+                
+                Provide the output as a JSON array of objects, where each object has a "text" (string) and "url" (string) key.`;
+
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = {
+                    contents: chatHistory,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    "text": { "type": "STRING" },
+                                    "url": { "type": "STRING" }
+                                },
+                                "propertyOrdering": ["text", "url"]
+                            }
+                        }
+                    }
+                };
+                const apiKey = "";
+                const apiUrl = https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey};
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    // Add check for empty or invalid JSON string
+                    if (!jsonString || jsonString.trim() === '') {
+                        console.warn("Gemini returned an empty or whitespace-only string for reference links.");
+                        return [
+                            { text: Search ${subject} on Khan Academy, url: https://www.khanacademy.org/search?q=${subject} },
+                            { text: Wikipedia: Basic ${subject} Concepts, url: https://en.wikipedia.org/wiki/${subject.replace(' ', '_')} }
+                        ]; // Fallback
+                    }
+                    try {
+                        return JSON.parse(jsonString);
+                    } catch (parseError) {
+                        console.error("Error parsing reference links JSON:", parseError, "Raw JSON string:", jsonString);
+                        return [
+                            { text: Search ${subject} on Khan Academy, url: https://www.khanacademy.org/search?q=${subject} },
+                            { text: Wikipedia: Basic ${subject} Concepts, url: https://en.wikipedia.org/wiki/${subject.replace(' ', '_')} }
+                        ]; // Fallback
+                    }
+                } else {
+                    console.warn("Gemini did not return reference links: No candidates or content found.", result);
+                    return [
+                        { text: Search ${subject} on Khan Academy, url: https://www.khanacademy.org/search?q=${subject} },
+                        { text: Wikipedia: Basic ${subject} Concepts, url: https://en.wikipedia.org/wiki/${subject.replace(' ', '_')} }
+                    ]; // Fallback
+                }
+            } catch (error) {
+                console.error("Error fetching reference links from Gemini:", error);
+                return [
+                    { text: Online ${subject} Resources, url: https://www.studyresources.com/${subject} },
+                    { text: Quick Study Guide for ${subject}, url: https://www.quickstudy.com/guide/${subject} }
+                ]; // Fallback on error
+            }
+        }
+
+        /**
+         * Generates a quiz based on the identified subject and topics using the Gemini API.
+         */
+        async function generateQuizWithGemini() {
+            if (!inputAnalysis || !inputAnalysis.subject || inputAnalysis.subject === 'general') {
+                showNotification("Please tell me a specific subject for the quiz (e.g., 'Generate a quiz on Math')!", true);
+                return;
+            }
+
+            showTypingIndicator();
+            sendButton.disabled = true; // Disable input
